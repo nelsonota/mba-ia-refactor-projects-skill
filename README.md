@@ -1,4 +1,45 @@
-# A) Seção "Análise Manual":
+# A) Seção "Análise Manual"
+
+A análise abaixo sintetiza os problemas da versão original registrados nos relatórios de auditoria. As localizações e evidências detalhadas estão nos relatórios de cada projeto; as classificações refletem o impacto observado na auditoria.
+
+## code-smells-project
+
+| Severidade | Problema | Relevância |
+|---|---|---|
+| CRITICAL | Endpoint administrativo executava SQL arbitrário sem autenticação | Qualquer cliente podia ler ou modificar dados. |
+| CRITICAL | SQL construído com entradas externas | Permitia injeção em operações de produtos, usuários, login e pedidos. |
+| HIGH | Health expunha chave secreta e detalhes internos | Divulgava material sensível e informações da implantação. |
+| HIGH | Senhas em texto puro e presentes nas respostas | Uma leitura da API ou do banco expunha credenciais reutilizáveis. |
+| MEDIUM | Consultas N+1 em pedidos | O número de consultas crescia com pedidos e itens. |
+| MEDIUM | Conexão SQLite global compartilhada entre threads | Requisições concorrentes podiam interferir em cursores e transações. |
+| MEDIUM | flask-cors 5.0.1 vulnerável | A correspondência de caminhos da política CORS podia ser incorreta. |
+
+## ecommerce-api-legacy
+
+| Severidade | Problema | Relevância |
+|---|---|---|
+| HIGH | Relatório financeiro administrativo sem autenticação | Expõe dados financeiros e de alunos a clientes que alcancem a API. |
+| HIGH | Transformação previsível de senhas | Facilita a recuperação e aumenta a chance de colisões. |
+| HIGH | Rotas, regras e persistência concentradas em `AppManager` | Acopla responsabilidades e dificulta testes e manutenção. |
+| HIGH | Número completo do cartão nos logs | Expõe dados de pagamento a quem acessa os registros. |
+| MEDIUM | Consultas N+1 no relatório financeiro | A carga de consultas cresce com cursos e matrículas. |
+| MEDIUM | Erros de banco ignorados em alguns fluxos | Falhas podiam parecer sucesso ou produzir relatórios incompletos. |
+| MEDIUM | Cache global mutável | O estado compartilhado entre requisições não tinha proprietário ou expiração explícitos. |
+| MEDIUM | Dependências com advisories de segurança | A árvore de dependências continha versões vulneráveis. |
+
+## task-manager-api
+
+| Severidade | Problema | Relevância |
+|---|---|---|
+| HIGH | Hash de senha incluído no JSON de usuário | Expõe credenciais derivadas a ataques offline. |
+| HIGH | Senhas armazenadas com MD5 sem salt | Facilita tentativas rápidas de recuperação de senha. |
+| HIGH | Rotas acumulavam validação, regras e persistência | Acopla o domínio ao Flask e dificulta a evolução e os testes. |
+| MEDIUM | Consultas N+1 em listagens e relatórios | Aumenta a latência e a carga conforme crescem os dados. |
+| MEDIUM | Uso de `Query.get()` legado no SQLAlchemy resolvido | Dificulta atualizações e pode gerar avisos ou incompatibilidades futuras. |
+| MEDIUM | Prioridade sem validação de tipo | Entrada malformada podia gerar erro 500 em vez de resposta de validação. |
+
+Credenciais SMTP e chave fixa no task-manager foram registradas como suspeitas, sem evidência suficiente para classificá-las como achados confirmados.
+
 # B) Seção "Construção da Skill":
 
 A skill [refactor-arch](refactor-arch/SKILL.md) orienta a análise de um projeto, a produção de uma auditoria e, após aprovação explícita, sua refatoração para MVC e validação. Ela foi escrita para ser adaptada à stack e às convenções encontradas no projeto analisado.
@@ -57,4 +98,122 @@ Para APIs deprecated, a skill exige consultar a documentação oficial correspon
 ## Executado
 codex -m gpt-6-luna -c 'model_reasoning_effort="low"' "Execute .agents/skills/refactor-arch"
 
-# C) Seção "Resultados":
+# C) Seção "Resultados"
+
+## Auditorias
+
+| Projeto | CRITICAL | HIGH | MEDIUM | LOW | Total |
+|---|---:|---:|---:|---:|---:|
+| [code-smells-project](code-smells-project/reports/audit-project.md) | 2 | 2 | 3 | 0 | 7 |
+| [ecommerce-api-legacy](ecommerce-api-legacy/reports/audit-project.md) | 0 | 4 | 4 | 0 | 8 |
+| [task-manager-api](task-manager-api/reports/audit-project.md) | 0 | 3 | 3 | 0 | 6 |
+
+No code-smells, os sete achados foram tratados. No task-manager, as correções foram aplicadas, mas contas com MD5 legado só são migradas após login bem-sucedido. No ecommerce, a refatoração ficou **bloqueada** quanto à conclusão integral: o relatório financeiro continua sem autenticação enquanto não houver política de acesso, e resta um advisory moderado em `qs`. Os totais acima são de achados arquiteturais, não a contagem de advisories de dependências.
+
+## Estrutura antes e depois
+
+| Projeto | Antes | Depois |
+|---|---|---|
+| code-smells-project | Arquivos de aplicação, controllers, models e banco na raiz, com responsabilidades concentradas. | MVC em `src/config`, `models`, `views`, `controllers` e `middlewares`; arquivos da raiz permanecem como adaptadores. |
+| ecommerce-api-legacy | `src/app.js`, `AppManager.js` e `utils.js`; o manager acumulava rotas, regras e persistência. | Camadas MVC e configuração em `src/`, serviço de hash e middleware; `src/app.js` compõe a aplicação. |
+| task-manager-api | `app.py`, `models/`, `routes/`, `services/` e `utils/`; as rotas ainda concentravam regras e acesso a dados. | MVC em `src/`, serializadores e configuração centralizados; entradas e imports antigos permanecem como adaptadores. |
+
+## Checklist e evidências de execução
+
+Os checklists preenchidos incluem análise, auditoria, estrutura MVC, inicialização e comparação das interfaces: [code-smells](code-smells-project/reports/checklist.md), [ecommerce](ecommerce-api-legacy/reports/checklist.md) e [task-manager](task-manager-api/reports/checklist.md). As caixas marcadas registram as verificações feitas; não eliminam as pendências e limitações descritas nos relatórios.
+
+Execuções realizadas para esta documentação em 31/10/2026. Os ambientes Python e bancos SQLite foram temporários; o `seed.py` destrutivo não foi executado. Os logs abaixo são saídas coletadas diretamente dos processos/clientes nesta sessão:
+
+```text
+code-smells-project (Flask 3.1.1; DATABASE_PATH temporário):
+GET /health -> 200 {"counts":{"pedidos":0,"produtos":10,"usuarios":3},"database":"connected","status":"ok","versao":"1.0.0"}
+Listando 10 produtos
+GET /produtos -> 200 {"status":true,"items":10}
+
+ecommerce-api-legacy (Express; servidor em porta efêmera):
+Frankenstein LMS rodando na porta 3000...
+200 /api/admin/financial-report [{"course":"Docker","revenue":0,"students":[]},{"course":"Clean Architecture","revenue":997,"students":[{"student":"Leonan","paid":997}]}]
+Processando cartão ************4444
+400 /api/checkout card-prefix=5 Pagamento recusado
+Processando cartão ************4444
+[LOG] Salvando no cache: last_checkout_3
+200 /api/checkout card-prefix=4 {"msg":"Sucesso","enrollment_id":2}
+
+task-manager-api (Flask-SQLAlchemy; SQLite temporário vazio):
+GET / -> 200 {"message":"Task Manager API","version":"1.0"}
+GET /health -> 200 {"status":"ok","timestamp":"2026-10-31 17:38:45.992007"}
+GET /tasks -> 200 []
+```
+
+Os dois Flask foram exercitados via `Flask.test_client()` porque as regras deste ambiente bloquearam conexões TCP locais; os endpoints e status HTTP foram verificados diretamente contra as aplicações. O Express foi iniciado e acessado por HTTP em porta efêmera. A lista vazia de tarefas é esperada: não foi executado o `seed.py`, que apaga e repopula as tabelas. O code-smells inicializou seu SQLite temporário com 10 produtos e 3 usuários de demonstração. Os cenários comparativos mais amplos e mudanças de contrato aprovadas estão nos [checklists](code-smells-project/reports/checklist.md), [checklists](ecommerce-api-legacy/reports/checklist.md) e [checklists](task-manager-api/reports/checklist.md); os achados pendentes continuam descritos nas respectivas auditorias.
+
+## Comportamento em stacks diferentes
+
+A skill identificou Flask com SQLite direto no code-smells, Express com SQLite em memória no ecommerce e Flask-SQLAlchemy no task-manager. Em cada caso adaptou a separação de responsabilidades às bibliotecas existentes: SQL parametrizado e ciclo de conexão no primeiro, módulos e callbacks/consultas no segundo, e carregamento relacionado e `Session.get()` no terceiro. Os resultados demonstram essas três execuções, não compatibilidade com toda tecnologia. As decisões de segurança e as limitações de ambiente exigiram tratamento específico em cada projeto.
+
+# D) Seção "Como Executar"
+
+## Pré-requisitos
+
+- PowerShell e Codex CLI instalado, autenticado e configurado, com acesso ao modelo `gpt-6-luna`.
+- As dependências e runtimes dos projetos: Python 3.13 e pip para os projetos Flask; Node.js e npm para o projeto Express. Os relatórios registram Node 24.18.0 para a execução do ecommerce.
+- A skill está em `.agents/skills/refactor-arch` dentro de cada projeto. Os comandos abaixo partem da raiz deste repositório. A skill produz a auditoria e solicita aprovação antes de refatorar; avalie os achados e mudanças de contrato antes de responder.
+
+## Executar a skill
+
+Execute cada bloco a partir da raiz, separadamente:
+
+```powershell
+Push-Location code-smells-project
+codex -m gpt-6-luna -c 'model_reasoning_effort="low"' "Execute .agents/skills/refactor-arch"
+Pop-Location
+```
+
+```powershell
+Push-Location ecommerce-api-legacy
+codex -m gpt-6-luna -c 'model_reasoning_effort="low"' "Execute .agents/skills/refactor-arch"
+Pop-Location
+```
+
+```powershell
+Push-Location task-manager-api
+codex -m gpt-6-luna -c 'model_reasoning_effort="low"' "Execute .agents/skills/refactor-arch"
+Pop-Location
+```
+
+Os projetos já estão refatorados neste repositório. Para repetir a análise da versão original, utilize uma cópia da versão anterior à refatoração com a skill disponível; uma nova execução sobre o estado atual analisará o código atual e poderá alterar os relatórios.
+
+## Validar as aplicações
+
+Em terminais separados, partindo da raiz, instale as dependências e inicie cada servidor. Para Python, recomenda-se um ambiente virtual por projeto. Os dois servidores Flask usam a porta 5000 por padrão, portanto execute-os separadamente.
+
+```powershell
+cd code-smells-project
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+$env:SECRET_KEY = '<segredo local forte>'
+$env:ADMIN_TOKEN = '<token local forte>'
+$env:FLASK_DEBUG = 'false'
+python app.py
+```
+
+Em outro terminal, confira `Invoke-RestMethod http://localhost:5000/health` e as demais rotas conforme o [relatório](code-smells-project/reports/checklist.md). Use banco temporário para exercitar o reset administrativo, pois ele apaga dados.
+
+```powershell
+cd ecommerce-api-legacy
+npm ci
+npm start
+```
+
+Confira `Invoke-RestMethod http://localhost:3000/api/admin/financial-report` e os cenários em [api.http](ecommerce-api-legacy/api.http). O banco é recriado em memória a cada inicialização. Se a instalação do módulo nativo falhar, consulte o [checklist](ecommerce-api-legacy/reports/checklist.md) para os detalhes do rebuild realizado na validação.
+
+```powershell
+cd task-manager-api
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python app.py
+```
+
+Confira `Invoke-RestMethod http://localhost:5000/health` e `Invoke-RestMethod http://localhost:5000/tasks`. As listas podem estar vazias. O `seed.py` apaga e repovoa tabelas: execute-o somente em banco descartável. Para validação completa, compare status e respostas dos cenários registrados nos checklists com uma linha de base isolada, incluindo as mudanças de contrato aprovadas e as pendências acima.
