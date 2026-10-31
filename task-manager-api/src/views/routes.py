@@ -1,0 +1,27 @@
+from flask import Blueprint
+from src.controllers import task_controller, user_controller, report_controller
+
+task_bp = Blueprint("tasks", __name__)
+user_bp = Blueprint("users", __name__)
+report_bp = Blueprint("reports", __name__)
+
+task_bp.add_url_rule('/tasks', endpoint='get_tasks', view_func=task_controller.get_tasks, methods=['GET'])
+task_bp.add_url_rule('/tasks/<int:task_id>', endpoint='get_task', view_func=task_controller.get_task, methods=['GET'])
+task_bp.add_url_rule('/tasks', endpoint='create_task', view_func=task_controller.create_task, methods=['POST'])
+task_bp.add_url_rule('/tasks/<int:task_id>', endpoint='update_task', view_func=task_controller.update_task, methods=['PUT'])
+task_bp.add_url_rule('/tasks/<int:task_id>', endpoint='delete_task', view_func=task_controller.delete_task, methods=['DELETE'])
+task_bp.add_url_rule('/tasks/search', endpoint='search_tasks', view_func=task_controller.search_tasks, methods=['GET'])
+task_bp.add_url_rule('/tasks/stats', endpoint='task_stats', view_func=task_controller.task_stats, methods=['GET'])
+user_bp.add_url_rule('/users', endpoint='get_users', view_func=user_controller.get_users, methods=['GET'])
+user_bp.add_url_rule('/users/<int:user_id>', endpoint='get_user', view_func=user_controller.get_user, methods=['GET'])
+user_bp.add_url_rule('/users', endpoint='create_user', view_func=user_controller.create_user, methods=['POST'])
+user_bp.add_url_rule('/users/<int:user_id>', endpoint='update_user', view_func=user_controller.update_user, methods=['PUT'])
+user_bp.add_url_rule('/users/<int:user_id>', endpoint='delete_user', view_func=user_controller.delete_user, methods=['DELETE'])
+user_bp.add_url_rule('/users/<int:user_id>/tasks', endpoint='get_user_tasks', view_func=user_controller.get_user_tasks, methods=['GET'])
+user_bp.add_url_rule('/login', endpoint='login', view_func=user_controller.login, methods=['POST'])
+report_bp.add_url_rule('/reports/summary', endpoint='summary_report', view_func=report_controller.summary_report, methods=['GET'])
+report_bp.add_url_rule('/reports/user/<int:user_id>', endpoint='user_report', view_func=report_controller.user_report, methods=['GET'])
+report_bp.add_url_rule('/categories', endpoint='get_categories', view_func=report_controller.get_categories, methods=['GET'])
+report_bp.add_url_rule('/categories', endpoint='create_category', view_func=report_controller.create_category, methods=['POST'])
+report_bp.add_url_rule('/categories/<int:cat_id>', endpoint='update_category', view_func=report_controller.update_category, methods=['PUT'])
+report_bp.add_url_rule('/categories/<int:cat_id>', endpoint='delete_category', view_func=report_controller.delete_category, methods=['DELETE'])
