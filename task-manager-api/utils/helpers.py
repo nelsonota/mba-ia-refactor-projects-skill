@@ -1,9 +1,19 @@
+from src.services.clock import utc_now
 from datetime import datetime
 import re
 import os
 import json
 import sys
 import math
+from src.models.constants import VALID_TASK_STATUSES, VALID_USER_ROLES, MAX_TASK_TITLE_LENGTH, MIN_TASK_TITLE_LENGTH, MIN_PASSWORD_LENGTH, DEFAULT_TASK_PRIORITY, DEFAULT_CATEGORY_COLOR, MIN_TASK_PRIORITY, MAX_TASK_PRIORITY
+
+VALID_STATUSES = VALID_TASK_STATUSES
+VALID_ROLES = VALID_USER_ROLES
+MAX_TITLE_LENGTH = MAX_TASK_TITLE_LENGTH
+MIN_TITLE_LENGTH = MIN_TASK_TITLE_LENGTH
+DEFAULT_PRIORITY = DEFAULT_TASK_PRIORITY
+DEFAULT_COLOR = DEFAULT_CATEGORY_COLOR
+
 import hashlib
 
 def format_date(date_obj):
@@ -35,7 +45,7 @@ def generate_id():
 
 def log_action(action, details=None):
 
-    timestamp = datetime.utcnow()
+    timestamp = utc_now()
     print(f"[{timestamp}] ACTION: {action}")
     if details:
         print(f"  DETAILS: {details}")
@@ -61,32 +71,32 @@ def process_task_data(data, existing_task=None):
         title = data['title']
         if title:
             title = title.strip()
-            if len(title) >= 3 and len(title) <= 200:
+            if MIN_TASK_TITLE_LENGTH <= len(title) <= MAX_TASK_TITLE_LENGTH:
                 result['title'] = title
             else:
-                return None, 'Título deve ter entre 3 e 200 caracteres'
+                return None, 'TÃ­tulo deve ter entre 3 e 200 caracteres'
         else:
-            return None, 'Título não pode ser vazio'
+            return None, 'TÃ­tulo nÃ£o pode ser vazio'
 
     if 'description' in data:
         result['description'] = data['description']
 
     if 'status' in data:
-        valid_statuses = ['pending', 'in_progress', 'done', 'cancelled']
+        valid_statuses = VALID_TASK_STATUSES
         if data['status'] in valid_statuses:
             result['status'] = data['status']
         else:
-            return None, 'Status inválido'
+            return None, 'Status invÃ¡lido'
 
     if 'priority' in data:
         try:
             p = int(data['priority'])
-            if p >= 1 and p <= 5:
+            if MIN_TASK_PRIORITY <= p <= MAX_TASK_PRIORITY:
                 result['priority'] = p
             else:
                 return None, 'Prioridade deve ser entre 1 e 5'
         except:
-            return None, 'Prioridade inválida'
+            return None, 'Prioridade invÃ¡lida'
 
     if 'due_date' in data:
         if data['due_date']:
@@ -94,7 +104,7 @@ def process_task_data(data, existing_task=None):
             if parsed:
                 result['due_date'] = parsed
             else:
-                return None, 'Data inválida'
+                return None, 'Data invÃ¡lida'
         else:
             result['due_date'] = None
 
@@ -107,10 +117,11 @@ def process_task_data(data, existing_task=None):
 
     return result, None
 
-VALID_STATUSES = ['pending', 'in_progress', 'done', 'cancelled']
-VALID_ROLES = ['user', 'admin', 'manager']
-MAX_TITLE_LENGTH = 200
-MIN_TITLE_LENGTH = 3
-MIN_PASSWORD_LENGTH = 4
-DEFAULT_PRIORITY = 3
-DEFAULT_COLOR = '#000000'
+from src.models.constants import VALID_TASK_STATUSES, VALID_USER_ROLES, MAX_TASK_TITLE_LENGTH, MIN_TASK_TITLE_LENGTH, MIN_PASSWORD_LENGTH, DEFAULT_TASK_PRIORITY, DEFAULT_CATEGORY_COLOR
+
+VALID_STATUSES = VALID_TASK_STATUSES
+VALID_ROLES = VALID_USER_ROLES
+MAX_TITLE_LENGTH = MAX_TASK_TITLE_LENGTH
+MIN_TITLE_LENGTH = MIN_TASK_TITLE_LENGTH
+DEFAULT_PRIORITY = DEFAULT_TASK_PRIORITY
+DEFAULT_COLOR = DEFAULT_CATEGORY_COLOR
